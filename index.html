@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MindFlow - Find Your Inner Peace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600&family=Cormorant+Garamond:wght@300;400;500&display=swap');
+        
+        * {
+            font-family: 'Quicksand', sans-serif;
+        }
+        
+        .serif {
+            font-family: 'Cormorant Garamond', serif;
+        }
+        
+        body {
+            background: #E8D5C4;
+            overscroll-behavior: none;
+            touch-action: pan-y;
+        }
+        
+        /* Breathing animations */
+        @keyframes breathe-in {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.4); }
+        }
+        
+        @keyframes breathe-out {
+            0% { transform: scale(1.4); }
+            100% { transform: scale(1); }
+        }
+        
+        .breath-in {
+            animation: breathe-in 8s ease-in-out;
+        }
+        
+        .breath-out {
+            animation: breathe-out 8s ease-in-out;
+        }
+        
+        /* Fade in animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.6s ease-out forwards;
+        }
+        
+        /* Floating decoration animation */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(5deg); }
+        }
+        
+        .float {
+            animation: float 8s ease-in-out infinite;
+        }
+        
+        /* Ripple effect */
+        @keyframes ripple {
+            0% { transform: scale(0.8); opacity: 0.8; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        
+        .ripple {
+            animation: ripple 2s ease-out infinite;
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(61, 79, 92, 0.1);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #D17B7B;
+            border-radius: 3px;
+        }
+        
+        /* Button press effect */
+        .btn-press:active {
+            transform: scale(0.95);
+        }
+        
+        /* Hide scrollbar but keep functionality */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="overflow-x-hidden">
+    <div id="app"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Theme configurations
+        const themes = [
+            {
+                id: 'anxiety',
+                name: 'Release Anxiety',
+                subtitle: 'Let go of worry, return to now',
+                color: '#D17B7B',
+                icon: '🌸',
+                breathText: ['Breathe In', 'Hold Peace', 'Breathe Out', 'Feel Calm'],
+                guidanceSteps: [
+                    { time: 0, text: 'Find a comfortable position and gently close your eyes' },
+                    { time: 30, text: 'Notice your breath, no need to change it' },
+                    { time: 60, text: 'Feel the air entering your body, bringing calm' },
+                    { time: 90, text: 'With each exhale, release a bit of tension' },
+                    { time: 120, text: 'You are safe, everything is okay right now' },
+                    { time: 150, text: 'Slowly open your eyes, carry this peace forward' }
+                ]
+            },
+            {
+                id: 'focus',
+                name: 'Enhance Focus',
+                subtitle: 'Clear your mind, center yourself',
+                color: '#3D4F5C',
+                icon: '🎯',
+                breathText: ['Deep Inhale', 'Stay Centered', 'Slow Exhale', 'Stay Focused'],
+                guidanceSteps: [
+                    { time: 0, text: 'Sit upright, keep your spine straight' },
+                    { time: 30, text: 'Bring your attention to your breath' },
+                    { time: 60, text: 'When thoughts drift, gently guide them back' },
+                    { time: 90, text: 'Feel your mind becoming clear and sharp' },
+                    { time: 120, text: 'Your focus is growing stronger' },
+                    { time: 150, text: 'Open your eyes, begin your work with clarity' }
+                ]
+            },
+            {
+                id: 'sleep',
+                name: 'Gentle Sleep',
+                subtitle: 'Relax deeply, drift into dreams',
+                color: '#6B8EA3',
+                icon: '🌙',
+                breathText: ['Soft Inhale', 'Release All', 'Gentle Exhale', 'Drift Away'],
+                guidanceSteps: [
+                    { time: 0, text: 'Lie down and let your body completely relax' },
+                    { time: 30, text: 'Starting from the top of your head, relax each part' },
+                    { time: 60, text: 'Shoulders, arms, and hands all release' },
+                    { time: 90, text: 'Belly, legs, and feet also relax' },
+                    { time: 120, text: 'Your whole body is becoming heavier' },
+                    { time: 150, text: 'Allow yourself to slowly drift into sleep...' }
+                ]
+            }
+        ];
+
+        // Main app component
+        function MeditationApp() {
+            const [currentScreen, setCurrentScreen] = useState('home'); // home, breathing, meditation, complete
+            const [selectedTheme, setSelectedTheme] = useState(null);
+            const [breathPhase, setBreathPhase] = useState(0); // 0: inhale, 1: hold, 2: exhale, 3: hold
+            const [breathCount, setBreathCount] = useState(0);
+            const [breathCountdown, setBreathCountdown] = useState(8); // Countdown for current breath phase
+            const [meditationTime, setMeditationTime] = useState(0);
+            const [currentGuidance, setCurrentGuidance] = useState('');
+            const [stats, setStats] = useState(() => {
+                const saved = localStorage.getItem('mindflowStats');
+                return saved ? JSON.parse(saved) : { totalSessions: 0, totalMinutes: 0, streak: 0 };
+            });
+            
+            const breathTimerRef = useRef(null);
+            const countdownTimerRef = useRef(null);
+            const meditationTimerRef = useRef(null);
+
+            // Start meditation flow
+            const startMeditation = (theme) => {
+                setSelectedTheme(theme);
+                setCurrentScreen('breathing');
+                setBreathCount(0);
+                setBreathPhase(0);
+                setBreathCountdown(8);
+                startBreathingExercise();
+            };
+
+            // Breathing exercise logic
+            const startBreathingExercise = () => {
+                let count = 0;
+                let phase = 0;
+                const phases = [8000, 8000, 8000, 8000]; // inhale-hold-exhale-hold (8 seconds each)
+
+                const startCountdown = (duration) => {
+                    let timeLeft = duration / 1000;
+                    setBreathCountdown(timeLeft);
+                    
+                    countdownTimerRef.current = setInterval(() => {
+                        timeLeft--;
+                        setBreathCountdown(timeLeft);
+                        if (timeLeft <= 0) {
+                            clearInterval(countdownTimerRef.current);
+                        }
+                    }, 1000);
+                };
+
+                const nextPhase = () => {
+                    phase = (phase + 1) % 4;
+                    setBreathPhase(phase);
+                    startCountdown(phases[phase]);
+                    
+                    if (phase === 0) {
+                        count++;
+                        setBreathCount(count);
+                        if (count >= 3) { // After 3 complete breath cycles, move to meditation
+                            clearTimeout(breathTimerRef.current);
+                            clearInterval(countdownTimerRef.current);
+                            setTimeout(() => startMeditationPhase(), 1000);
+                            return;
+                        }
+                    }
+                    
+                    breathTimerRef.current = setTimeout(nextPhase, phases[phase]);
+                };
+
+                startCountdown(phases[0]);
+                breathTimerRef.current = setTimeout(nextPhase, phases[0]);
+            };
+
+            // Meditation phase
+            const startMeditationPhase = () => {
+                setCurrentScreen('meditation');
+                setMeditationTime(0);
+                
+                // Set guidance text
+                selectedTheme.guidanceSteps.forEach(step => {
+                    setTimeout(() => {
+                        setCurrentGuidance(step.text);
+                    }, step.time * 1000);
+                });
+
+                // Timer
+                let seconds = 0;
+                meditationTimerRef.current = setInterval(() => {
+                    seconds++;
+                    setMeditationTime(seconds);
+                    
+                    if (seconds >= 180) { // Complete after 3 minutes
+                        completeMeditation();
+                    }
+                }, 1000);
+            };
+
+            // Complete meditation
+            const completeMeditation = () => {
+                clearInterval(meditationTimerRef.current);
+                setCurrentScreen('complete');
+                
+                // Update statistics
+                const newStats = {
+                    totalSessions: stats.totalSessions + 1,
+                    totalMinutes: stats.totalMinutes + 3,
+                    streak: stats.streak + 1,
+                    lastSession: new Date().toISOString()
+                };
+                setStats(newStats);
+                localStorage.setItem('mindflowStats', JSON.stringify(newStats));
+            };
+
+            // Return to home
+            const goHome = () => {
+                clearTimeout(breathTimerRef.current);
+                clearInterval(countdownTimerRef.current);
+                clearInterval(meditationTimerRef.current);
+                setCurrentScreen('home');
+                setSelectedTheme(null);
+                setBreathCount(0);
+                setMeditationTime(0);
+            };
+
+            // Clean up timers
+            useEffect(() => {
+                return () => {
+                    clearTimeout(breathTimerRef.current);
+                    clearInterval(countdownTimerRef.current);
+                    clearInterval(meditationTimerRef.current);
+                };
+            }, []);
+
+            return (
+                <div className="min-h-screen relative" style={{ background: '#E8D5C4' }}>
+                    {/* Decorative elements */}
+                    <div className="absolute top-20 right-10 w-32 h-32 rounded-full opacity-20 float" 
+                         style={{ background: '#3D4F5C' }}></div>
+                    <div className="absolute bottom-40 left-10 w-40 h-40 rounded-full opacity-15 float" 
+                         style={{ background: '#D17B7B', animationDelay: '2s' }}></div>
+
+                    {/* Main content */}
+                    {currentScreen === 'home' && <HomeScreen themes={themes} onStart={startMeditation} stats={stats} />}
+                    {currentScreen === 'breathing' && <BreathingScreen theme={selectedTheme} phase={breathPhase} count={breathCount} countdown={breathCountdown} />}
+                    {currentScreen === 'meditation' && <MeditationScreen theme={selectedTheme} time={meditationTime} guidance={currentGuidance} />}
+                    {currentScreen === 'complete' && <CompleteScreen theme={selectedTheme} stats={stats} onHome={goHome} />}
+                </div>
+            );
+        }
+
+        // Home screen component
+        function HomeScreen({ themes, onStart, stats }) {
+            return (
+                <div className="min-h-screen flex flex-col px-6 py-8 fade-in">
+                    {/* Logo and title */}
+                    <div className="flex items-center mb-12">
+                        <div className="w-10 h-10 rounded-full mr-3" style={{ background: '#3D4F5C' }}></div>
+                        <h1 className="serif text-3xl font-light" style={{ color: '#D17B7B' }}>MindFlow</h1>
+                    </div>
+
+                    {/* Welcome message */}
+                    <div className="mb-8">
+                        <h2 className="text-2xl font-light mb-2" style={{ color: '#3D4F5C' }}>
+                            Welcome back
+                        </h2>
+                        <p className="text-sm opacity-60" style={{ color: '#3D4F5C' }}>
+                            Choose a theme to begin your 3-minute meditation journey
+                        </p>
+                    </div>
+
+                    {/* Stats card */}
+                    {stats.totalSessions > 0 && (
+                        <div className="mb-8 p-4 rounded-2xl" style={{ background: 'rgba(61, 79, 92, 0.05)' }}>
+                            <div className="grid grid-cols-3 gap-4 text-center">
+                                <div>
+                                    <div className="text-2xl font-light" style={{ color: '#D17B7B' }}>{stats.totalSessions}</div>
+                                    <div className="text-xs opacity-60" style={{ color: '#3D4F5C' }}>sessions</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-light" style={{ color: '#D17B7B' }}>{stats.totalMinutes}</div>
+                                    <div className="text-xs opacity-60" style={{ color: '#3D4F5C' }}>minutes</div>
+                                </div>
+                                <div>
+                                    <div className="text-2xl font-light" style={{ color: '#D17B7B' }}>{stats.streak}</div>
+                                    <div className="text-xs opacity-60" style={{ color: '#3D4F5C' }}>day streak</div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Theme selection */}
+                    <div className="flex-1 space-y-4">
+                        {themes.map((theme, index) => (
+                            <button
+                                key={theme.id}
+                                onClick={() => onStart(theme)}
+                                className="w-full p-6 rounded-3xl text-left transition-all duration-300 btn-press fade-in"
+                                style={{ 
+                                    background: 'rgba(255, 255, 255, 0.4)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.6)',
+                                    animationDelay: `${index * 0.1}s`
+                                }}
+                            >
+                                <div className="flex items-start justify-between mb-3">
+                                    <div className="text-4xl">{theme.icon}</div>
+                                    <div className="w-12 h-12 rounded-full flex items-center justify-center" 
+                                         style={{ background: theme.color + '20' }}>
+                                        <svg className="w-6 h-6" style={{ color: theme.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </div>
+                                </div>
+                                <h3 className="text-xl font-medium mb-1" style={{ color: '#3D4F5C' }}>
+                                    {theme.name}
+                                </h3>
+                                <p className="text-sm opacity-60" style={{ color: '#3D4F5C' }}>
+                                    {theme.subtitle}
+                                </p>
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Bottom tip */}
+                    <div className="mt-8 text-center text-xs opacity-40" style={{ color: '#3D4F5C' }}>
+                        Best experienced in a quiet space with headphones
+                    </div>
+                </div>
+            );
+        }
+
+        // Breathing exercise component
+        function BreathingScreen({ theme, phase, count, countdown }) {
+            const phaseTexts = theme.breathText;
+            const phaseColors = ['#D17B7B', '#6B8EA3', '#D17B7B', '#6B8EA3'];
+            
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center px-6 fade-in">
+                    <div className="text-center mb-16">
+                        <div className="text-sm opacity-60 mb-2" style={{ color: '#3D4F5C' }}>
+                            {theme.name} · Breathing Exercise
+                        </div>
+                        <div className="text-xs opacity-40" style={{ color: '#3D4F5C' }}>
+                            Round {count + 1} / 3
+                        </div>
+                    </div>
+
+                    {/* Breathing circle */}
+                    <div className="relative mb-20">
+                        {/* Outer ripple */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className={`w-64 h-64 rounded-full ripple`} 
+                                 style={{ background: phaseColors[phase] + '20' }}></div>
+                        </div>
+                        
+                        {/* Main circle */}
+                        <div className={`relative z-10 w-48 h-48 rounded-full flex items-center justify-center transition-all duration-[8000ms] ease-in-out ${phase === 0 ? 'breath-in' : phase === 2 ? 'breath-out' : ''}`}
+                             style={{ 
+                                 background: `linear-gradient(135deg, ${phaseColors[phase]}40, ${phaseColors[phase]}20)`,
+                                 border: `2px solid ${phaseColors[phase]}60`,
+                                 backdropFilter: 'blur(20px)'
+                             }}>
+                            <div className="text-center">
+                                <div className="text-5xl mb-2">{theme.icon}</div>
+                                {/* Countdown timer inside circle */}
+                                <div className="text-4xl font-light" style={{ color: phaseColors[phase] }}>
+                                    {countdown}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Breathing instruction text */}
+                    <div className="text-center">
+                        <div className="text-2xl font-light mb-4 transition-all duration-500" 
+                             style={{ color: phaseColors[phase] }}>
+                            {phaseTexts[phase]}
+                        </div>
+                        <div className="text-sm opacity-60" style={{ color: '#3D4F5C' }}>
+                            {phase === 0 && 'Feel the air entering your body'}
+                            {phase === 1 && 'Keep your breath steady'}
+                            {phase === 2 && 'Slowly release all tension'}
+                            {phase === 3 && 'Prepare for the next breath'}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Meditation phase component
+        function MeditationScreen({ theme, time, guidance }) {
+            const minutes = Math.floor(time / 60);
+            const seconds = time % 60;
+            
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center px-6 fade-in">
+                    {/* Progress bar */}
+                    <div className="w-full max-w-xs mb-12">
+                        <div className="h-1 rounded-full" style={{ background: 'rgba(61, 79, 92, 0.2)' }}>
+                            <div className="h-1 rounded-full transition-all duration-1000" 
+                                 style={{ 
+                                     width: `${(time / 180) * 100}%`,
+                                     background: theme.color 
+                                 }}></div>
+                        </div>
+                        <div className="text-xs text-center mt-2 opacity-40" style={{ color: '#3D4F5C' }}>
+                            {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')} / 03:00
+                        </div>
+                    </div>
+
+                    {/* Theme icon */}
+                    <div className="text-7xl mb-12 float">
+                        {theme.icon}
+                    </div>
+
+                    {/* Guidance text */}
+                    <div className="max-w-xs text-center mb-16">
+                        <div className="text-xl font-light leading-relaxed fade-in" 
+                             style={{ color: '#3D4F5C' }}
+                             key={guidance}>
+                            {guidance || 'Follow your breath...'}
+                        </div>
+                    </div>
+
+                    {/* Ambient indicators */}
+                    <div className="flex items-center space-x-6 opacity-30">
+                        <div className="text-center">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-2" 
+                                 style={{ background: 'rgba(61, 79, 92, 0.1)' }}>
+                                🎵
+                            </div>
+                            <div className="text-xs" style={{ color: '#3D4F5C' }}>Nature</div>
+                        </div>
+                        <div className="text-center">
+                            <div className="w-12 h-12 rounded-full flex items-center justify-center mb-2" 
+                                 style={{ background: 'rgba(61, 79, 92, 0.1)' }}>
+                                💭
+                            </div>
+                            <div className="text-xs" style={{ color: '#3D4F5C' }}>Relax</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        // Complete screen component
+        function CompleteScreen({ theme, stats, onHome }) {
+            return (
+                <div className="min-h-screen flex flex-col items-center justify-center px-6 fade-in">
+                    {/* Completion icon */}
+                    <div className="w-24 h-24 rounded-full flex items-center justify-center mb-8" 
+                         style={{ background: theme.color + '20' }}>
+                        <svg className="w-12 h-12" style={{ color: theme.color }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                    </div>
+
+                    {/* Completion title */}
+                    <h2 className="text-3xl font-light mb-3" style={{ color: '#3D4F5C' }}>
+                        Well Done
+                    </h2>
+                    <p className="text-sm opacity-60 mb-12 text-center" style={{ color: '#3D4F5C' }}>
+                        You've completed a {theme.name} session<br/>
+                        Carry this inner peace forward
+                    </p>
+
+                    {/* Stats card */}
+                    <div className="w-full max-w-xs p-6 rounded-3xl mb-8" 
+                         style={{ background: 'rgba(255, 255, 255, 0.4)', backdropFilter: 'blur(10px)' }}>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="text-center">
+                                <div className="text-3xl font-light mb-1" style={{ color: theme.color }}>
+                                    {stats.totalSessions}
+                                </div>
+                                <div className="text-xs opacity-60" style={{ color: '#3D4F5C' }}>
+                                    Total Sessions
+                                </div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-3xl font-light mb-1" style={{ color: theme.color }}>
+                                    {stats.streak}
+                                </div>
+                                <div className="text-xs opacity-60" style={{ color: '#3D4F5C' }}>
+                                    Day Streak
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Encouragement text */}
+                    <div className="max-w-xs text-center mb-12">
+                        <p className="text-sm opacity-60 leading-relaxed" style={{ color: '#3D4F5C' }}>
+                            {stats.totalSessions === 1 && 'This is your first session, congratulations on taking this step'}
+                            {stats.totalSessions > 1 && stats.totalSessions <= 5 && 'Keep going, each practice brings you closer to inner peace'}
+                            {stats.totalSessions > 5 && stats.totalSessions <= 20 && 'You\'ve built a wonderful habit, keep it up'}
+                            {stats.totalSessions > 20 && 'You\'re a meditation master! Continue enjoying this tranquility'}
+                        </p>
+                    </div>
+
+                    {/* Button */}
+                    <button
+                        onClick={onHome}
+                        className="px-12 py-4 rounded-full text-white font-medium transition-all duration-300 btn-press"
+                        style={{ background: theme.color }}
+                    >
+                        Back to Home
+                    </button>
+
+                    {/* Share tip */}
+                    <div className="mt-8 text-xs opacity-40 text-center" style={{ color: '#3D4F5C' }}>
+                        Share this peace with friends ✨
+                    </div>
+                </div>
+            );
+        }
+
+        // Render app
+        const root = ReactDOM.createRoot(document.getElementById('app'));
+        root.render(<MeditationApp />);
+    </script>
+
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
